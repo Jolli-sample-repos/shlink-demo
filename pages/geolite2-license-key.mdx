@@ -1,0 +1,430 @@
+---
+title: GeoLite2 license key
+---
+
+{/* Build timestamp: 1764955046400 - Forces cache invalidation */}
+
+**Last Updated:** 12/3/2025
+
+---
+
+# GeoLite2 License Key
+
+Shlink uses MaxMind's GeoLite2 database to geolocate visitors and provide location-based analytics for your short URLs. To access and download the GeoLite2 database, you need a valid license key from MaxMind.
+
+![ts-pattern](/images/nameofimage)
+
+## What is GeoLite2?
+
+GeoLite2 is a free IP geolocation database provided by MaxMind. It allows Shlink to:
+
+- Determine the geographic location of visitors accessing your short URLs
+- Track visits by country, city, and region
+- Provide detailed analytics about where your traffic is coming from
+- Enable geolocation-based dynamic redirects (available since Shlink 4.3.0)
+
+The database maps IP addresses to physical locations, enabling you to see where your short URL visitors are located around the world.
+
+## Why Do You Need a License Key?
+
+Since December 30, 2019, MaxMind requires users to create a free account and obtain a license key to download GeoLite2 databases. This change was implemented to comply with privacy regulations and improve data accuracy.
+
+Without a license key:
+- Shlink cannot automatically download or update the GeoLite2 database
+- Visit geolocation features will not work
+- Location-based analytics will be unavailable
+- Geolocation-based redirect rules will not function
+
+## How to Obtain a GeoLite2 License Key
+
+### Step 1: Create a MaxMind Account
+
+1. Visit [https://www.maxmind.com](https://www.maxmind.com)
+2. Click on "Sign Up" to create a free account
+3. Fill out the registration form with your information
+4. Verify your email address
+
+### Step 2: Generate a License Key
+
+1. Log in to your MaxMind account
+2. Navigate to "My License Keys" in your account dashboard
+3. Click "Generate New License Key"
+4. Provide a description for your key (e.g., "Shlink Production")
+5. Answer "Will this key be used for GeoIP Update?" with **No**
+6. Click "Confirm" to generate the key
+7. **Important**: Copy and save your license key immediately - you won't be able to see it again
+
+## Configuring Shlink with Your License Key
+
+### Using Environment Variables (Recommended)
+
+The easiest way to provide your GeoLite2 license key is through the `GEOLITE_LICENSE_KEY` environment variable:
+
+```bash
+GEOLITE_LICENSE_KEY=your_license_key_here
+```
+
+#### Docker
+
+When running Shlink with Docker, add the environment variable to your `docker-compose.yml`:
+
+```yaml
+version: '3'
+services:
+  shlink:
+    image: shlinkio/shlink:stable
+    environment:
+      - GEOLITE_LICENSE_KEY=your_license_key_here
+      - DEFAULT_DOMAIN=doma.in
+      # ... other environment variables
+```
+
+Or pass it directly when running the container:
+
+```bash
+docker run -e GEOLITE_LICENSE_KEY=your_license_key_here shlinkio/shlink:stable
+```
+
+#### Using Docker Secrets
+
+For enhanced security in Docker environments, you can use Docker secrets:
+
+```yaml
+version: '3.8'
+services:
+  shlink:
+    image: shlinkio/shlink:stable
+    secrets:
+      - geolite_license_key
+    environment:
+      - GEOLITE_LICENSE_KEY_FILE=/run/secrets/geolite_license_key
+      # ... other environment variables
+
+secrets:
+  geolite_license_key:
+    file: ./geolite_license_key.txt
+```
+
+### Using the Installer
+
+If you're installing Shlink manually (not using Docker), you can provide the license key during the installation process:
+
+```bash
+./vendor/bin/shlink-installer install
+```
+
+The installer will prompt you for the GeoLite2 license key. You can also provide it non-interactively:
+
+```bash
+./vendor/bin/shlink-installer init --initial-api-key=your_api_key
+```
+
+### Configuration File
+
+The license key is stored in the configuration at `config/autoload/geolite2.global.php`:
+
+```php
+<?php
+
+declare(strict_types=1);
+
+use Shlinkio\Shlink\Core\Config\EnvVars;
+
+return [
+    'geolite2' => [
+        'db_location' => __DIR__ . '/../../data/GeoLite2-City.mmdb',
+        'temp_dir' => __DIR__ . '/../../data/temp-geolite',
+        'license_key' => EnvVars::GEOLITE_LICENSE_KEY->loadFromEnv(),
+    ],
+];
+```
+
+## Database Download and Updates
+
+### Initial Download
+
+When Shlink starts for the first time with a valid license key, it will automatically download the GeoLite2 database file (`GeoLite2-City.mmdb`) to the `data` directory.
+
+#### Skipping Initial Download
+
+In Docker environments, you can skip the initial database download to speed up container startup:
+
+```bash
+docker run -e SKIP_INITIAL_GEOLITE_DOWNLOAD=true shlinkio/shlink:stable
+```
+
+This is useful when:
+- You're running multiple Shlink instances and want to download the database separately
+- You want faster container startup times
+- You plan to download the database manually later
+
+You can manually download the database later using:
+
+```bash
+bin/cli visit:download-db
+```
+
+### Automatic Updates
+
+Shlink intelligently manages GeoLite2 database updates with the following behavior:
+
+**Update Triggers**: Shlink will attempt to download a new database when:
+- No download attempts have been tracked for the current instance
+- The database file doesn't exist
+- The last download attempt resulted in an error (with retry limits)
+- The most recent successful download is older than 30 days
+
+**Error Handling**: To prevent hitting MaxMind's API rate limits:
+- Shlink tracks all download attempts (successful and failed)
+- After 15 consecutive failed download attempts, Shlink will wait 2 days before retrying
+- Each attempt's reason and error details are logged for troubleshooting
+
+**Lock Mechanism**: Shlink uses a locking mechanism to prevent multiple processes from downloading the database simultaneously, which is especially important in clustered environments.
+
+### Manual Database Download
+
+You can manually trigger a database download or update using the CLI command:
+
+```bash
+bin/cli visit:download-db
+```
+
+This command will:
+- Check if an update is needed
+- Download the latest GeoLite2 database if necessary
+- Display progress during the download
+- Report the result (success, up-to-date, or error)
+
+**Warning Messages**:
+- `It was not possible to download GeoLite2 db, because a license was not provided.` - You need to configure your license key
+- `Max consecutive errors reached. Cannot retry for a couple of days.` - Too many failed attempts; wait before retrying
+- `A geolocation db is already being downloaded by another process.` - Another process is currently downloading
+
+## Troubleshooting
+
+### License Key Not Working
+
+If your license key isn't working:
+
+1. **Verify the key is correct**: Double-check you copied the entire key without extra spaces
+2. **Check key permissions**: Ensure the key is configured for GeoIP database downloads (not GeoIP Update)
+3. **Regenerate if necessary**: If the key was compromised or deleted, generate a new one from your MaxMind account
+
+### Database Not Downloading
+
+If the database isn't downloading automatically:
+
+1. **Check the license key configuration**: Ensure `GEOLITE_LICENSE_KEY` is properly set
+2. **Verify network connectivity**: Shlink needs internet access to reach MaxMind's servers
+3. **Check logs**: Look for error messages in Shlink's logs (`data/log` directory)
+4. **Manual download**: Try running `bin/cli visit:download-db` to see detailed error messages
+5. **Check disk space**: Ensure there's sufficient disk space for the database file (~70-80 MB)
+
+### Download Failures
+
+Common reasons for download failures:
+
+- **Invalid license key**: The key may have been revoked or is incorrectly formatted
+- **Network issues**: Firewall rules or network problems preventing access to MaxMind servers
+- **Rate limiting**: Too many download attempts in a short period
+- **MaxMind service issues**: Temporary problems with MaxMind's download service
+
+When downloads fail repeatedly, Shlink will:
+- Continue using the existing (older) database if available
+- Display warnings but continue operating
+- Automatically retry after the cooldown period
+
+### Checking Database Status
+
+To verify your GeoLite2 database is working:
+
+1. Check if the database file exists: `data/GeoLite2-City.mmdb`
+2. Verify the file size (should be 70-80 MB for a complete database)
+3. Check the file modification date to see when it was last updated
+4. Test geolocation by creating a short URL and visiting it, then checking the visit location in analytics
+
+## Geolocation Features in Shlink
+
+Once you have a valid license key and the GeoLite2 database configured, you can use these features:
+
+### Visit Analytics
+
+View detailed location information for each visit to your short URLs:
+- Country
+- City  
+- Region/State
+- Latitude and Longitude
+
+Access via:
+- REST API: `GET /short-urls/{shortCode}/visits`
+- CLI: `bin/cli short-url:visits {shortCode}`
+
+### Location-Based Redirects
+
+Since Shlink 4.3.0, you can create dynamic redirect rules based on visitor location:
+
+**Country-based redirects**: Redirect visitors from specific countries to different URLs
+```json
+{
+  "longUrl": "https://example.com/default",
+  "redirectRules": [
+    {
+      "longUrl": "https://example.com/us",
+      "conditions": [
+        {
+          "type": "geolocation-country-code",
+          "matchKey": "country-code",
+          "matchValue": "US"
+        }
+      ]
+    }
+  ]
+}
+```
+
+**City-based redirects**: Target specific cities
+```json
+{
+  "longUrl": "https://example.com/default",
+  "redirectRules": [
+    {
+      "longUrl": "https://example.com/london",
+      "conditions": [
+        {
+          "type": "geolocation-city-name",
+          "matchKey": "city-name",
+          "matchValue": "London"
+        }
+      ]
+    }
+  ]
+}
+```
+
+### Visit Location Commands
+
+Shlink provides CLI commands for managing visit geolocation:
+
+**Locate unlocated visits**:
+```bash
+bin/cli visit:locate
+```
+
+**Retry failed geolocations**:
+```bash
+bin/cli visit:locate --retry
+```
+
+**View orphan visits by location**:
+```bash
+bin/cli visit:orphan
+```
+
+## Performance Considerations
+
+### Database File Size
+
+The GeoLite2-City database is approximately 70-80 MB. Ensure your hosting environment has adequate:
+- Disk space for the database file
+- Memory for loading the database into Shlink
+- Bandwidth for downloading updates
+
+### Geolocation Processing
+
+- Geolocation happens asynchronously when possible (with RoadRunner or Openswoole)
+- Visit tracking remains fast regardless of geolocation status
+- Failed geolocations don't block short URL redirects
+
+### Caching
+
+Shlink caches geolocation results to improve performance:
+- Repeated lookups for the same IP are faster
+- Cache is automatically managed
+- No manual cache clearing needed for geolocation data
+
+## Privacy and Compliance
+
+### Data Storage
+
+When using GeoLite2:
+- IP addresses are geolocated but can be anonymized (see `ANONYMIZE_REMOTE_ADDR` option)
+- Only location data is stored, not the raw IP address (when anonymization is enabled)
+- Geolocation data is stored in your database under your control
+
+### GDPR Compliance
+
+To help with GDPR compliance:
+- Enable IP address anonymization: `ANONYMIZE_REMOTE_ADDR=true`
+- This removes the last octet of IPv4 addresses and last 80 bits of IPv6 addresses
+- Geolocation still works with anonymized IPs
+- Location data is less precise but still useful for analytics
+
+### MaxMind's Terms
+
+By using GeoLite2, you agree to MaxMind's terms of service:
+- The database is for your internal use
+- You cannot redistribute the database
+- Attribution is required: "This product includes GeoLite2 data created by MaxMind, available from https://www.maxmind.com"
+
+## Best Practices
+
+1. **Keep your license key secure**: Treat it like a password; don't commit it to version control
+2. **Use environment variables**: Avoid hardcoding the key in configuration files
+3. **Monitor download status**: Check logs periodically to ensure database updates are successful
+4. **Test after setup**: Create a test short URL and verify location tracking works
+5. **Plan for failures**: Understand that geolocation will gracefully degrade if the database is unavailable
+6. **Regular updates**: Let Shlink automatically update the database monthly for best accuracy
+7. **Use Docker secrets**: In production Docker environments, use secrets instead of environment variables
+
+## Advanced Configuration
+
+### Custom Database Location
+
+You can customize where the GeoLite2 database is stored by modifying `config/autoload/geolite2.global.php`:
+
+```php
+return [
+    'geolite2' => [
+        'db_location' => '/custom/path/GeoLite2-City.mmdb',
+        'temp_dir' => '/custom/path/temp-geolite',
+        'license_key' => EnvVars::GEOLITE_LICENSE_KEY->loadFromEnv(),
+    ],
+];
+```
+
+### Disabling Geolocation
+
+If you don't want to use geolocation features:
+
+1. Don't provide a `GEOLITE_LICENSE_KEY`
+2. Shlink will skip geolocation-related operations
+3. Location-based features will be unavailable but Shlink will function normally
+
+### Multiple Shlink Instances
+
+When running multiple Shlink instances:
+
+- Each instance can use the same license key
+- Consider sharing the database file via network storage to reduce downloads
+- Use `SKIP_INITIAL_GEOLITE_DOWNLOAD=true` and download manually to a shared location
+- Ensure proper file permissions for all instances to read the database
+
+## Related Documentation
+
+- [MaxMind GeoLite2 Documentation](https://dev.maxmind.com/geoip/geolite2-free-geolocation-data)
+- [Shlink Geolocation Configuration](https://shlink.io/documentation/geolocation/)
+- [Shlink Dynamic Redirects](https://shlink.io/documentation/some-features/#dynamic-redirects-based-on-rules)
+- [Docker Compose Secrets](https://docs.docker.com/compose/use-secrets/)
+
+## Summary
+
+The GeoLite2 license key is essential for enabling geolocation features in Shlink. Here's a quick recap:
+
+- **Get a free license key** from MaxMind's website
+- **Configure it** using the `GEOLITE_LICENSE_KEY` environment variable
+- **Database downloads** happen automatically on first startup and monthly thereafter
+- **Manual updates** are available via `bin/cli visit:download-db`
+- **Features enabled**: Visit analytics, location-based redirects, geographic insights
+- **Keep it secure**: Use environment variables or Docker secrets
+
+With proper configuration, Shlink will automatically manage the GeoLite2 database, providing you with rich geographic insights into your short URL traffic.

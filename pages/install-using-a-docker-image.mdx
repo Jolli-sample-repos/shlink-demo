@@ -1,0 +1,423 @@
+---
+title: Install using a docker image
+---
+
+{/* Build timestamp: 1764955046400 - Forces cache invalidation */}
+
+**Last Updated:** 12/3/2025
+
+---
+
+# Install using a Docker image
+
+Shlink provides official Docker images that allow you to quickly deploy the application in a containerized environment. This is the recommended approach for most users as it simplifies deployment and ensures all dependencies are properly configured.
+
+## Docker image tags
+
+The official Shlink Docker images are available at [Docker Hub](https://hub.docker.com/r/shlinkio/shlink/) under `shlinkio/shlink`.
+
+Available tags include:
+
+- `latest`: The most recent stable release
+- `stable`: Alias for the latest stable release
+- `x.x.x`: Specific version tags (e.g., `3.0.0`, `4.0.0`)
+- `develop`: Latest development version (not recommended for production)
+
+The images are built on Alpine Linux and include PHP 8.4+ with all required extensions.
+
+## Quick start
+
+The simplest way to run Shlink with Docker is using a single container:
+
+```bash
+docker run \
+    --name shlink \
+    -p 8080:8080 \
+    -e DEFAULT_DOMAIN=example.com \
+    -e IS_HTTPS_ENABLED=true \
+    -e GEOLITE_LICENSE_KEY=your_license_key \
+    shlinkio/shlink:latest
+```
+
+This command will:
+- Create a container named `shlink`
+- Expose the application on port 8080
+- Use SQLite as the database (default)
+- Configure `example.com` as your default domain
+
+## Using Docker Compose
+
+For production deployments, Docker Compose is recommended as it allows you to easily manage multiple services and persist data.
+
+Create a `docker-compose.yml` file:
+
+```yaml
+version: '3'
+
+services:
+  shlink:
+    image: shlinkio/shlink:stable
+    container_name: shlink
+    restart: always
+    ports:
+      - "8080:8080"
+    environment:
+      DEFAULT_DOMAIN: example.com
+      IS_HTTPS_ENABLED: "true"
+      GEOLITE_LICENSE_KEY: your_license_key
+      DB_DRIVER: mysql
+      DB_USER: shlink
+      DB_PASSWORD: shlink_password
+      DB_HOST: database
+      DB_NAME: shlink
+    depends_on:
+      - database
+    volumes:
+      - shlink-data:/etc/shlink/data
+
+  database:
+    image: mysql:8.0
+    container_name: shlink_db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: root_password
+      MYSQL_DATABASE: shlink
+      MYSQL_USER: shlink
+      MYSQL_PASSWORD: shlink_password
+    volumes:
+      - mysql-data:/var/lib/mysql
+
+volumes:
+  shlink-data:
+  mysql-data:
+```
+
+Then start the services:
+
+```bash
+docker compose up -d
+```
+
+## Configuration via environment variables
+
+Shlink is configured entirely through environment variables. Here are the most important ones:
+
+### Basic configuration
+
+- `DEFAULT_DOMAIN` (required): The default domain for short URLs (e.g., `example.com`)
+- `IS_HTTPS_ENABLED`: Whether to use HTTPS for generated URLs (default: `true`)
+- `GEOLITE_LICENSE_KEY`: Your MaxMind GeoLite2 license key for geolocation features
+- `INITIAL_API_KEY`: Automatically create an API key on first run
+
+### Database configuration
+
+By default, Shlink uses SQLite. To use a different database:
+
+- `DB_DRIVER`: Database type (`mysql`, `postgres`, `maria`, `mssql`, or `sqlite`)
+- `DB_HOST`: Database host
+- `DB_PORT`: Database port (default: `3306` for MySQL/MariaDB, `5432` for PostgreSQL, `1433` for MSSQL)
+- `DB_NAME`: Database name (default: `shlink`)
+- `DB_USER`: Database username
+- `DB_PASSWORD`: Database password
+- `DB_UNIX_SOCKET`: Unix socket path (alternative to host/port)
+
+### URL shortener behavior
+
+- `DEFAULT_SHORT_CODES_LENGTH`: Default length for generated short codes (default: `5`)
+- `SHORT_URL_MODE`: URL matching mode (`loose` or `strict`, default: `strict`)
+- `AUTO_RESOLVE_TITLES`: Automatically fetch page titles (default: `true`)
+- `REDIRECT_STATUS_CODE`: HTTP status code for redirects (default: `302`)
+- `REDIRECT_CACHE_LIFETIME`: Cache lifetime for redirects in seconds (default: `30`)
+
+### Tracking configuration
+
+- `DISABLE_TRACKING`: Completely disable visit tracking (default: `false`)
+- `DISABLE_IP_TRACKING`: Don't track visitor IP addresses (default: `false`)
+- `DISABLE_REFERRER_TRACKING`: Don't track referrer information (default: `false`)
+- `DISABLE_UA_TRACKING`: Don't track user agent (default: `false`)
+- `ANONYMIZE_REMOTE_ADDR`: Anonymize IP addresses (default: `true`)
+- `TRACK_ORPHAN_VISITS`: Track visits to the base URL or invalid short codes (default: `true`)
+
+### Redis configuration
+
+For improved performance and real-time features:
+
+- `REDIS_SERVERS`: Redis server(s) in the format `tcp://host:port` (comma-separated for multiple servers)
+- `REDIS_SENTINEL_SERVICE`: Redis Sentinel service name
+- `REDIS_SERVERS_USER`: Redis username (if authentication is required)
+- `REDIS_SERVERS_PASSWORD`: Redis password
+- `REDIS_PUB_SUB_ENABLED`: Enable Redis pub/sub for real-time updates (default: `false`)
+
+### Mercure integration
+
+For real-time updates in the web client:
+
+- `MERCURE_PUBLIC_HUB_URL`: Public URL of your Mercure hub
+- `MERCURE_INTERNAL_HUB_URL`: Internal URL for server-to-Mercure communication (defaults to public URL)
+- `MERCURE_JWT_SECRET`: JWT secret for Mercure authentication
+
+### RabbitMQ integration
+
+For asynchronous task processing:
+
+- `RABBITMQ_ENABLED`: Enable RabbitMQ integration (default: `false`)
+- `RABBITMQ_HOST`: RabbitMQ host
+- `RABBITMQ_PORT`: RabbitMQ port (default: `5672`)
+- `RABBITMQ_USER`: RabbitMQ username
+- `RABBITMQ_PASSWORD`: RabbitMQ password
+- `RABBITMQ_VHOST`: RabbitMQ virtual host (default: `/`)
+
+### Other configuration
+
+- `BASE_PATH`: Base path if Shlink is not at the domain root (e.g., `/shlink`)
+- `TIMEZONE`: Timezone for date operations (default: system timezone)
+- `MEMORY_LIMIT`: PHP memory limit (default: `512M`)
+- `DISABLE_TRACK_PARAM`: Query parameter to disable tracking for specific visits
+
+## Using Docker secrets
+
+For sensitive configuration values, you can use Docker secrets by appending `_FILE` to any environment variable name:
+
+```yaml
+services:
+  shlink:
+    image: shlinkio/shlink:stable
+    environment:
+      DB_PASSWORD_FILE: /run/secrets/db_password
+      GEOLITE_LICENSE_KEY_FILE: /run/secrets/geolite_key
+    secrets:
+      - db_password
+      - geolite_key
+
+secrets:
+  db_password:
+    file: ./secrets/db_password.txt
+  geolite_key:
+    file: ./secrets/geolite_key.txt
+```
+
+## Data persistence
+
+The Docker image stores data in `/etc/shlink/data`, which includes:
+
+- `cache/`: Application cache
+- `locks/`: Lock files for concurrent operations
+- `log/`: Application logs
+- `proxies/`: Doctrine proxy classes
+- `temp-geolite/`: Temporary GeoLite2 database files
+
+To persist this data, mount a volume:
+
+```bash
+docker run \
+    --name shlink \
+    -v shlink-data:/etc/shlink/data \
+    shlinkio/shlink:latest
+```
+
+## Generating API keys
+
+After the container is running, you'll need to generate an API key to interact with Shlink's REST API:
+
+```bash
+docker exec -it shlink shlink api-key:generate
+```
+
+Alternatively, set the `INITIAL_API_KEY` environment variable to automatically create an API key on first run:
+
+```yaml
+environment:
+  INITIAL_API_KEY: your-secret-api-key
+```
+
+## Running CLI commands
+
+You can execute any Shlink CLI command inside the container:
+
+```bash
+# List all available commands
+docker exec -it shlink shlink
+
+# Create a short URL
+docker exec -it shlink shlink short-url:generate https://example.com
+
+# List short URLs
+docker exec -it shlink shlink short-url:list
+
+# Get visit statistics
+docker exec -it shlink shlink visit:stats
+```
+
+## Database migrations
+
+Database migrations are automatically run when the container starts. The entrypoint script executes the initialization process, which:
+
+1. Creates necessary data directories
+2. Runs database migrations
+3. Downloads GeoLite2 database (if license key is provided)
+4. Creates initial API key (if `INITIAL_API_KEY` is set)
+
+## Complete example with all services
+
+Here's a complete `docker-compose.yml` with MySQL, Redis, and Mercure:
+
+```yaml
+version: '3.8'
+
+services:
+  shlink:
+    image: shlinkio/shlink:stable
+    container_name: shlink
+    restart: always
+    ports:
+      - "8080:8080"
+    environment:
+      DEFAULT_DOMAIN: example.com
+      IS_HTTPS_ENABLED: "true"
+      GEOLITE_LICENSE_KEY: your_license_key
+      INITIAL_API_KEY: your-secret-api-key
+      
+      # Database
+      DB_DRIVER: mysql
+      DB_HOST: database
+      DB_USER: shlink
+      DB_PASSWORD: shlink_password
+      DB_NAME: shlink
+      
+      # Redis
+      REDIS_SERVERS: tcp://redis:6379
+      REDIS_PUB_SUB_ENABLED: "true"
+      
+      # Mercure
+      MERCURE_PUBLIC_HUB_URL: https://mercure.example.com/.well-known/mercure
+      MERCURE_INTERNAL_HUB_URL: http://mercure/.well-known/mercure
+      MERCURE_JWT_SECRET: your-mercure-secret
+      
+      # Tracking
+      ANONYMIZE_REMOTE_ADDR: "true"
+      
+    depends_on:
+      - database
+      - redis
+      - mercure
+    volumes:
+      - shlink-data:/etc/shlink/data
+
+  database:
+    image: mysql:8.0
+    container_name: shlink_db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: root_password
+      MYSQL_DATABASE: shlink
+      MYSQL_USER: shlink
+      MYSQL_PASSWORD: shlink_password
+    volumes:
+      - mysql-data:/var/lib/mysql
+
+  redis:
+    image: redis:7-alpine
+    container_name: shlink_redis
+    restart: always
+    volumes:
+      - redis-data:/data
+
+  mercure:
+    image: dunglas/mercure
+    container_name: shlink_mercure
+    restart: always
+    environment:
+      SERVER_NAME: ':80'
+      MERCURE_PUBLISHER_JWT_KEY: your-mercure-secret
+      MERCURE_SUBSCRIBER_JWT_KEY: your-mercure-secret
+      MERCURE_EXTRA_DIRECTIVES: |
+        cors_origins https://app.shlink.io
+    ports:
+      - "3000:80"
+
+volumes:
+  shlink-data:
+  mysql-data:
+  redis-data:
+```
+
+## Updating Shlink
+
+To update to a newer version:
+
+1. Pull the latest image:
+   ```bash
+   docker pull shlinkio/shlink:stable
+   ```
+
+2. Stop and remove the old container:
+   ```bash
+   docker compose down
+   ```
+
+3. Start with the new image:
+   ```bash
+   docker compose up -d
+   ```
+
+Database migrations will run automatically on startup.
+
+## Troubleshooting
+
+### Checking logs
+
+View container logs:
+```bash
+docker logs shlink
+
+# Follow logs in real-time
+docker logs -f shlink
+```
+
+### Container won't start
+
+1. Check that all required environment variables are set
+2. Verify database connectivity if using an external database
+3. Ensure the database exists and credentials are correct
+4. Check that ports are not already in use
+
+### Permission issues
+
+If you encounter permission issues with volumes, you may need to adjust the user ID. The container runs as user `1001` by default. You can override this:
+
+```bash
+docker run --user 1000:1000 shlinkio/shlink:stable
+```
+
+### GeoLite2 database issues
+
+If geolocation isn't working:
+1. Verify your `GEOLITE_LICENSE_KEY` is valid
+2. Check that the container has internet access to download the database
+3. Set `SKIP_INITIAL_GEOLITE_DOWNLOAD=true` to skip the download if needed
+
+## Runtime options
+
+The Shlink Docker image uses RoadRunner as the default application server, which provides better performance than traditional PHP-FPM. This is controlled by the `SHLINK_RUNTIME` environment variable (default: `rr`).
+
+The image exposes port `8080` by default, which is where RoadRunner listens for HTTP requests.
+
+## Security considerations
+
+1. **Always use strong passwords** for database and API keys
+2. **Use Docker secrets** for sensitive values in production
+3. **Enable HTTPS** by setting `IS_HTTPS_ENABLED=true`
+4. **Keep the image updated** to receive security patches
+5. **Limit exposed ports** - only expose what's necessary
+6. **Use a reverse proxy** (like nginx or Traefik) with SSL/TLS termination
+7. **Enable IP anonymization** with `ANONYMIZE_REMOTE_ADDR=true`
+
+## Next steps
+
+After installation:
+
+1. Access the web client at [https://app.shlink.io](https://app.shlink.io) and connect it to your instance
+2. Generate additional API keys with specific permissions
+3. Configure a reverse proxy with SSL/TLS
+4. Set up automated backups for your database
+5. Review the [API documentation](https://shlink.io/documentation/api-docs) to integrate Shlink with your applications

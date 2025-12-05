@@ -1,0 +1,9 @@
+{
+  "index": "Home",
+  "api-reference": "API Reference",
+  "geolite2-license-key": "GeoLite2 license key",
+  "supported-database-engines": "Supported database engines",
+  "supported-runtimes": "Supported runtimes",
+  "install-using-a-dist-file": "Install using a dist file",
+  "install-using-a-docker-image": "Install using a docker image"
+}

@@ -1,0 +1,378 @@
+---
+title: Install using a dist file
+---
+
+{/* Build timestamp: 1764955046400 - Forces cache invalidation */}
+
+**Last Updated:** 12/3/2025
+
+---
+
+# Install using a dist file
+
+Installing Shlink using a pre-built distribution file is the easiest and most straightforward method to get Shlink up and running on your server. This approach is ideal for users who want a quick installation without the need to build the project from source.
+
+## What is a dist file?
+
+A dist file (distribution file) is a pre-packaged, production-ready version of Shlink that includes all the necessary dependencies and optimized code. These files are automatically generated and published with each official release, eliminating the need to manually install dependencies or configure build tools.
+
+Each dist file is built for a specific PHP version to ensure optimal compatibility and performance with your server environment.
+
+## Prerequisites
+
+Before installing Shlink using a dist file, ensure your server meets the following requirements:
+
+### System Requirements
+
+* **PHP Version**: PHP 8.4 or 8.5
+* **PHP Extensions**: The following extensions must be installed and enabled:
+  * `json` - For JSON data handling
+  * `curl` - For making HTTP requests
+  * `pdo` - For database connectivity
+  * `intl` - For internationalization support
+  * `gd` - For image manipulation (QR codes)
+  * `gmp` or `bcmath` - For mathematical operations
+  * `apcu` (recommended) - For caching if not using RoadRunner
+  * `sockets` and `bcmath` (required for RabbitMQ integration)
+
+### Database Requirements
+
+Shlink supports multiple database engines. You'll need one of the following:
+
+* MySQL
+* MariaDB
+* PostgreSQL
+* Microsoft SQL Server
+* SQLite
+
+You'll also need the corresponding PDO extension for your chosen database:
+* `pdo_mysql` for MySQL/MariaDB
+* `pdo_pgsql` for PostgreSQL
+* `pdo_sqlsrv` for Microsoft SQL Server
+* `pdo_sqlite` for SQLite
+
+### Server Access
+
+* Command-line (SSH) access to your server
+* Ability to execute PHP scripts from the command line
+* Write permissions for the installation directory
+
+## Step 1: Download the dist file
+
+Navigate to the [Shlink releases page](https://github.com/shlinkio/shlink/releases/latest) on GitHub to download the latest version.
+
+### Choosing the right dist file
+
+On the releases page, you'll find multiple dist files named in the format: `shlink{version}_php{phpVersion}_dist.zip`
+
+For example:
+* `shlink4.0.0_php8.4_dist.zip` - For PHP 8.4
+* `shlink4.0.0_php8.5_dist.zip` - For PHP 8.5
+
+**Important**: Choose the dist file that matches your server's PHP version. You can check your PHP version by running:
+
+```bash
+php -v
+```
+
+### Download methods
+
+**Option 1: Direct download via browser**
+
+Click on the appropriate dist file for your PHP version to download it to your local machine, then upload it to your server using FTP, SCP, or your preferred file transfer method.
+
+**Option 2: Download directly on the server**
+
+If you have command-line access to your server, you can download the file directly using `wget` or `curl`:
+
+```bash
+# Using wget
+wget https://github.com/shlinkio/shlink/releases/download/v4.0.0/shlink4.0.0_php8.4_dist.zip
+
+# Using curl
+curl -LO https://github.com/shlinkio/shlink/releases/download/v4.0.0/shlink4.0.0_php8.4_dist.zip
+```
+
+Replace the version numbers in the URL with the actual version you want to install.
+
+## Step 2: Extract the dist file
+
+Once you have the dist file on your server, extract it to your desired installation location.
+
+```bash
+# Navigate to your desired installation directory
+cd /var/www
+
+# Extract the zip file
+unzip shlink4.0.0_php8.4_dist.zip
+
+# Optional: Rename the extracted folder for convenience
+mv shlink4.0.0_php8.4_dist shlink
+```
+
+The extracted directory will contain all the necessary files and dependencies for running Shlink.
+
+## Step 3: Set permissions
+
+Shlink needs write access to the `data` directory to store cache files, logs, and other runtime data.
+
+```bash
+# Navigate to the Shlink directory
+cd /var/www/shlink
+
+# Grant write permissions recursively to the data directory
+chmod -R 775 data
+
+# Ensure the web server user has access (adjust 'www-data' to your web server user)
+chown -R www-data:www-data data
+```
+
+**Note**: The specific user and group names may vary depending on your server configuration. Common web server users include:
+* `www-data` (Debian/Ubuntu)
+* `apache` (CentOS/RHEL)
+* `nginx` (when using nginx)
+
+## Step 4: Create the database
+
+If you're using MySQL, MariaDB, PostgreSQL, or Microsoft SQL Server, you need to create an empty database for Shlink.
+
+### MySQL/MariaDB example:
+
+```bash
+mysql -u root -p
+```
+
+```sql
+CREATE DATABASE shlink_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE USER 'shlink_user'@'localhost' IDENTIFIED BY 'secure_password';
+GRANT ALL PRIVILEGES ON shlink_db.* TO 'shlink_user'@'localhost';
+FLUSH PRIVILEGES;
+EXIT;
+```
+
+### PostgreSQL example:
+
+```bash
+sudo -u postgres psql
+```
+
+```sql
+CREATE DATABASE shlink_db;
+CREATE USER shlink_user WITH PASSWORD 'secure_password';
+GRANT ALL PRIVILEGES ON DATABASE shlink_db TO shlink_user;
+\q
+```
+
+**Note**: If you're using SQLite, skip this step. Shlink will automatically create the database file during the installation process.
+
+## Step 5: Run the installation wizard
+
+Shlink provides an interactive installation wizard that guides you through the configuration process.
+
+```bash
+# Navigate to the Shlink directory
+cd /var/www/shlink
+
+# Run the installation wizard
+vendor/bin/shlink-installer install
+```
+
+**Important**: The installation wizard must be run directly on the server where Shlink will be hosted. Do not configure it locally and then upload it, as the paths and environment may differ.
+
+### Installation wizard prompts
+
+The wizard will ask you several questions to configure Shlink. Here's what to expect:
+
+1. **Database configuration**:
+   * Database driver (MySQL, PostgreSQL, SQLite, etc.)
+   * Database host (usually `localhost`)
+   * Database port (default: 3306 for MySQL, 5432 for PostgreSQL)
+   * Database name
+   * Database username
+   * Database password
+
+2. **URL shortener configuration**:
+   * Short domain (e.g., `short.example.com`)
+   * Schema (http or https)
+   * Custom slugs behavior
+   * Short URL mode
+
+3. **Redirects configuration**:
+   * Base URL redirect
+   * Invalid short URL redirect
+   * Regular 404 redirect
+
+4. **Application configuration**:
+   * Enable visits tracking
+   * Anonymous visits tracking
+   * Disable track param
+   * Default short codes length
+
+5. **GeoLite configuration**:
+   * GeoLite2 license key (optional but recommended for visitor geolocation)
+
+The wizard will save your configuration and set up the database schema automatically.
+
+## Step 6: Generate an API key
+
+To interact with Shlink's REST API, you need to generate at least one API key:
+
+```bash
+bin/cli api-key:generate
+```
+
+This command will output an API key that you should save securely. You'll need this key to authenticate API requests.
+
+### Generate an API key with specific permissions
+
+You can also create API keys with restricted permissions:
+
+```bash
+# API key that can only create short URLs
+bin/cli api-key:generate --name="Create Only" --no-orphan-visits --no-global-short-url-visits
+
+# API key with expiration date
+bin/cli api-key:generate --expiration-date="2025-12-31"
+```
+
+## Step 7: Verify the installation
+
+After completing the installation, verify that everything is working correctly:
+
+### Check Shlink version
+
+```bash
+bin/cli --version
+```
+
+This should display the installed Shlink version.
+
+### Create a test short URL
+
+```bash
+bin/cli short-url:create https://example.com
+```
+
+If successful, this will create a short URL and display the result.
+
+### List available commands
+
+```bash
+bin/cli
+```
+
+This displays all available CLI commands for managing Shlink.
+
+## Next steps
+
+Now that Shlink is installed, you can:
+
+1. **Configure a web server**: Set up nginx or Apache to serve Shlink's web interface. See the [web server configuration guide](https://shlink.io/documentation/serve-with-nginx-or-apache/) for details.
+
+2. **Set up RoadRunner**: For better performance, consider running Shlink with RoadRunner instead of traditional PHP-FPM. See the [RoadRunner documentation](https://shlink.io/documentation/advanced/exposing-through-roadrunner/).
+
+3. **Use the web client**: Access Shlink through the web interface at [https://app.shlink.io](https://app.shlink.io) or host your own instance of [shlink-web-client](https://github.com/shlinkio/shlink-web-client).
+
+4. **Explore the REST API**: Review the [API documentation](https://shlink.io/documentation/api-docs) to integrate Shlink with your applications.
+
+5. **Configure real-time updates**: Set up webhooks, RabbitMQ, or Mercure for real-time notifications. See the [real-time updates documentation](https://shlink.io/documentation/advanced/real-time-updates/).
+
+## Updating Shlink
+
+When a new version of Shlink is released, you can update your installation by following these steps:
+
+1. **Backup your data**:
+   ```bash
+   # Backup the database
+   mysqldump -u shlink_user -p shlink_db > shlink_backup.sql
+   
+   # Backup the data directory
+   tar -czf shlink_data_backup.tar.gz data/
+   ```
+
+2. **Download the new dist file** for your PHP version from the releases page.
+
+3. **Extract to a temporary location**:
+   ```bash
+   unzip shlink4.1.0_php8.4_dist.zip -d /tmp/shlink-new
+   ```
+
+4. **Copy your configuration**:
+   ```bash
+   cp config/params/generated_config.php /tmp/shlink-new/shlink4.1.0_php8.4_dist/config/params/
+   ```
+
+5. **Replace the old installation**:
+   ```bash
+   # Backup the old installation
+   mv /var/www/shlink /var/www/shlink-old
+   
+   # Move the new version
+   mv /tmp/shlink-new/shlink4.1.0_php8.4_dist /var/www/shlink
+   ```
+
+6. **Set permissions**:
+   ```bash
+   cd /var/www/shlink
+   chmod -R 775 data
+   chown -R www-data:www-data data
+   ```
+
+7. **Run database migrations**:
+   ```bash
+   vendor/bin/shlink-installer update
+   ```
+
+8. **Verify the update**:
+   ```bash
+   bin/cli --version
+   ```
+
+## Troubleshooting
+
+### Permission errors
+
+If you encounter permission errors, ensure the web server user has write access to the `data` directory:
+
+```bash
+chmod -R 775 data
+chown -R www-data:www-data data
+```
+
+### Database connection errors
+
+Verify your database credentials in `config/params/generated_config.php` and ensure the database server is running and accessible.
+
+### Missing PHP extensions
+
+Check which extensions are installed:
+
+```bash
+php -m
+```
+
+Install missing extensions using your system's package manager:
+
+```bash
+# Debian/Ubuntu
+sudo apt-get install php8.4-{extension-name}
+
+# CentOS/RHEL
+sudo yum install php84-{extension-name}
+```
+
+### CLI commands not working
+
+Ensure you're running commands from the Shlink installation directory and that the `bin/cli` file has execute permissions:
+
+```bash
+chmod +x bin/cli
+```
+
+## Additional resources
+
+* [Official Documentation](https://shlink.io/documentation/)
+* [GitHub Repository](https://github.com/shlinkio/shlink)
+* [API Specification](https://api-spec.shlink.io/)
+* [Shlink Web Client](https://github.com/shlinkio/shlink-web-client)
+* [Community Support](https://github.com/shlinkio/shlink/discussions)

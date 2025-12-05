@@ -1,0 +1,482 @@
+{
+  "apiInfo": {
+    "name": "Shlink API",
+    "description": "Shlink, the self-hosted URL shortener",
+    "version": "3.0",
+    "openApiVersion": "3.1.0",
+    "baseUrl": "{scheme}://{host}",
+    "authentication": {
+      "type": "apiKey",
+      "location": "header",
+      "headerName": "X-Api-Key"
+    },
+    "documentation": "https://shlink.io/documentation/api-docs"
+  },
+  "endpoints": [
+    {
+      "category": "Short URLs",
+      "endpoints": [
+        {
+          "path": "/rest/v{version}/short-urls",
+          "methods": {
+            "GET": {
+              "operationId": "listShortUrls",
+              "summary": "List short URLs",
+              "description": "Returns the list of short URLs with pagination and filtering options",
+              "authentication": "required",
+              "parameters": {
+                "query": [
+                  "page",
+                  "itemsPerPage",
+                  "searchTerm",
+                  "tags[]",
+                  "tagsMode",
+                  "excludeTags[]",
+                  "excludeTagsMode",
+                  "orderBy",
+                  "startDate",
+                  "endDate",
+                  "excludeMaxVisitsReached",
+                  "excludePastValidUntil",
+                  "domain",
+                  "apiKeyName"
+                ]
+              }
+            },
+            "POST": {
+              "operationId": "createShortUrl",
+              "summary": "Create short URL",
+              "description": "Creates a new short URL with optional custom slug, domain, and metadata",
+              "authentication": "required",
+              "requestBody": {
+                "required": ["longUrl"],
+                "optional": [
+                  "customSlug",
+                  "pathPrefix",
+                  "findIfExists",
+                  "domain",
+                  "shortCodeLength",
+                  "tags",
+                  "title",
+                  "validSince",
+                  "validUntil",
+                  "maxVisits",
+                  "crawlable",
+                  "forwardQuery"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "path": "/rest/v{version}/short-urls/shorten",
+          "methods": {
+            "GET": {
+              "operationId": "shortenUrl",
+              "summary": "Create a short URL (Deprecated)",
+              "description": "Legacy endpoint for creating short URLs via GET request",
+              "deprecated": true,
+              "authentication": "query parameter",
+              "parameters": {
+                "query": ["apiKey", "longUrl", "format"]
+              }
+            }
+          }
+        },
+        {
+          "path": "/rest/v{version}/short-urls/{shortCode}",
+          "methods": {
+            "GET": {
+              "operationId": "getShortUrl",
+              "summary": "Parse short code",
+              "description": "Get the long URL and metadata behind a short URL's short code",
+              "authentication": "required",
+              "parameters": {
+                "path": ["shortCode"],
+                "query": ["domain"]
+              }
+            },
+            "PATCH": {
+              "operationId": "editShortUrl",
+              "summary": "Edit short URL",
+              "description": "Update metadata of an existing short URL",
+              "authentication": "required",
+              "parameters": {
+                "path": ["shortCode"],
+                "query": ["domain"]
+              },
+              "requestBody": {
+                "optional": [
+                  "longUrl",
+                  "validSince",
+                  "validUntil",
+                  "maxVisits",
+                  "tags",
+                  "title",
+                  "crawlable",
+                  "forwardQuery"
+                ]
+              }
+            },
+            "DELETE": {
+              "operationId": "deleteShortUrl",
+              "summary": "Delete short URL",
+              "description": "Deletes the short URL for provided short code",
+              "authentication": "required",
+              "parameters": {
+                "path": ["shortCode"],
+                "query": ["domain"]
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "category": "Redirect Rules",
+      "endpoints": [
+        {
+          "path": "/rest/v{version}/short-urls/{shortCode}/redirect-rules",
+          "methods": {
+            "GET": {
+              "operationId": "listShortUrlRedirectRules",
+              "summary": "List short URL redirect rules",
+              "description": "Returns the list of redirect rules for a short URL",
+              "authentication": "required",
+              "parameters": {
+                "path": ["shortCode"],
+                "query": ["domain"]
+              }
+            },
+            "POST": {
+              "operationId": "setShortUrlRedirectRules",
+              "summary": "Set short URL redirect rules",
+              "description": "Sets redirect rules for a short URL with priorities",
+              "authentication": "required",
+              "parameters": {
+                "path": ["shortCode"],
+                "query": ["domain"]
+              },
+              "requestBody": {
+                "required": ["redirectRules"],
+                "ruleConditionTypes": [
+                  "device",
+                  "language",
+                  "query-param"
+                ]
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "category": "Tags",
+      "endpoints": [
+        {
+          "path": "/rest/v{version}/tags",
+          "methods": {
+            "GET": {
+              "operationId": "listTags",
+              "summary": "List existing tags",
+              "description": "Returns the list of all tags used in any short URL",
+              "authentication": "required",
+              "parameters": {
+                "query": ["page", "itemsPerPage", "searchTerm", "orderBy"]
+              }
+            },
+            "PUT": {
+              "operationId": "renameTag",
+              "summary": "Rename tag",
+              "description": "Renames one existing tag",
+              "authentication": "required",
+              "requestBody": {
+                "required": ["oldName", "newName"]
+              }
+            },
+            "DELETE": {
+              "operationId": "deleteTags",
+              "summary": "Delete tags",
+              "description": "Deletes provided list of tags",
+              "authentication": "required",
+              "parameters": {
+                "query": ["tags[]"]
+              }
+            }
+          }
+        },
+        {
+          "path": "/rest/v{version}/tags/stats",
+          "methods": {
+            "GET": {
+              "operationId": "tagsWithStats",
+              "summary": "Get tags with stats",
+              "description": "Returns tags with short URL count and visit statistics",
+              "authentication": "required",
+              "parameters": {
+                "query": ["page", "itemsPerPage", "searchTerm", "orderBy"]
+              },
+              "notes": "Performance issue when ordering by shortUrlsCount, visits, or nonBotVisits"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "category": "Visits",
+      "endpoints": [
+        {
+          "path": "/rest/v{version}/visits",
+          "methods": {
+            "GET": {
+              "operationId": "getVisits",
+              "summary": "Get global visits",
+              "description": "Returns visits across all short URLs",
+              "authentication": "required"
+            }
+          }
+        },
+        {
+          "path": "/rest/v{version}/short-urls/{shortCode}/visits",
+          "methods": {
+            "GET": {
+              "operationId": "getShortUrlVisits",
+              "summary": "List visits for short URL",
+              "description": "Get the list of visits on a specific short URL",
+              "authentication": "required",
+              "parameters": {
+                "path": ["shortCode"],
+                "query": [
+                  "domain",
+                  "startDate",
+                  "endDate",
+                  "page",
+                  "itemsPerPage",
+                  "excludeBots"
+                ]
+              }
+            },
+            "DELETE": {
+              "operationId": "deleteShortUrlVisits",
+              "summary": "Delete visits for short URL",
+              "description": "Delete all existing visits on a short URL",
+              "authentication": "required",
+              "parameters": {
+                "path": ["shortCode"],
+                "query": ["domain"]
+              }
+            }
+          }
+        },
+        {
+          "path": "/rest/v{version}/tags/{tag}/visits",
+          "methods": {
+            "GET": {
+              "operationId": "getTagVisits",
+              "summary": "Get visits for tag",
+              "description": "Returns visits for all short URLs with a specific tag",
+              "authentication": "required",
+              "parameters": {
+                "path": ["tag"]
+              }
+            }
+          }
+        },
+        {
+          "path": "/rest/v{version}/domains/{domain}/visits",
+          "methods": {
+            "GET": {
+              "operationId": "getDomainVisits",
+              "summary": "Get visits for domain",
+              "description": "Returns visits for all short URLs under a specific domain",
+              "authentication": "required",
+              "parameters": {
+                "path": ["domain"]
+              }
+            }
+          }
+        },
+        {
+          "path": "/rest/v{version}/visits/orphan",
+          "methods": {
+            "GET": {
+              "operationId": "getOrphanVisits",
+              "summary": "Get orphan visits",
+              "description": "Returns visits that could not be matched to any short URL",
+              "authentication": "required"
+            }
+          }
+        },
+        {
+          "path": "/rest/v{version}/visits/non-orphan",
+          "methods": {
+            "GET": {
+              "operationId": "getNonOrphanVisits",
+              "summary": "Get non-orphan visits",
+              "description": "Returns all visits that matched short URLs",
+              "authentication": "required"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "category": "Domains",
+      "endpoints": [
+        {
+          "path": "/rest/v{version}/domains",
+          "methods": {
+            "GET": {
+              "operationId": "listDomains",
+              "summary": "List configured domains",
+              "description": "Returns all domains used for short URLs with redirect configurations",
+              "authentication": "required"
+            }
+          }
+        },
+        {
+          "path": "/rest/v{version}/domains/redirects",
+          "methods": {
+            "PATCH": {
+              "operationId": "configureDomainRedirects",
+              "summary": "Configure domain redirects",
+              "description": "Configure redirect behavior for a domain",
+              "authentication": "required"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "category": "Integrations",
+      "endpoints": [
+        {
+          "path": "/rest/v{version}/mercure-info",
+          "methods": {
+            "GET": {
+              "operationId": "mercureInfo",
+              "summary": "Get mercure integration info",
+              "description": "Returns information to consume real-time updates via Mercure hub",
+              "authentication": "required",
+              "returns": {
+                "mercureHubUrl": "string",
+                "jwt": "string",
+                "jwtExpiration": "datetime"
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "category": "Monitoring",
+      "endpoints": [
+        {
+          "path": "/rest/health",
+          "methods": {
+            "GET": {
+              "operationId": "health",
+              "summary": "Check healthiness",
+              "description": "Checks the healthiness of the service and resource access",
+              "authentication": "none",
+              "responses": {
+                "200": "Service is healthy",
+                "503": "Service is unhealthy"
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "category": "URL Shortener (Non-REST)",
+      "endpoints": [
+        {
+          "path": "/{shortCode}",
+          "methods": {
+            "GET": {
+              "summary": "Redirect to long URL",
+              "description": "Public endpoint that redirects to the long URL",
+              "authentication": "none"
+            }
+          }
+        },
+        {
+          "path": "/{shortCode}/track",
+          "methods": {
+            "GET": {
+              "summary": "Track and redirect",
+              "description": "Track visit and redirect to long URL",
+              "authentication": "none"
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "dataModels": {
+    "ShortUrl": {
+      "properties": [
+        "shortCode",
+        "shortUrl",
+        "longUrl",
+        "dateCreated",
+        "visitsSummary",
+        "tags",
+        "meta",
+        "domain",
+        "title",
+        "crawlable",
+        "forwardQuery",
+        "hasRedirectRules"
+      ]
+    },
+    "Visit": {
+      "properties": [
+        "referer",
+        "date",
+        "userAgent",
+        "visitLocation",
+        "potentialBot",
+        "visitedUrl"
+      ]
+    },
+    "RedirectRule": {
+      "properties": [
+        "longUrl",
+        "priority",
+        "conditions"
+      ],
+      "conditionTypes": [
+        "device",
+        "language",
+        "query-param"
+      ]
+    }
+  },
+  "errorHandling": {
+    "format": "application/problem+json",
+    "commonErrors": {
+      "400": "Invalid data or parameters",
+      "403": "Forbidden operation (insufficient permissions)",
+      "404": "Resource not found",
+      "409": "Conflict (e.g., duplicate slug)",
+      "422": "Cannot perform operation (e.g., visits threshold)",
+      "501": "Feature not configured"
+    }
+  },
+  "features": {
+    "pagination": true,
+    "filtering": true,
+    "sorting": true,
+    "customSlugs": true,
+    "multiDomain": true,
+    "tagging": true,
+    "visitTracking": true,
+    "geoLocation": true,
+    "botDetection": true,
+    "redirectRules": true,
+    "realTimeUpdates": "Mercure integration",
+    "queryParamForwarding": true
+  }
+}

@@ -1,0 +1,365 @@
+---
+title: Supported database engines
+---
+
+{/* Build timestamp: 1764955046400 - Forces cache invalidation */}
+
+**Last Updated:** 12/3/2025
+
+---
+
+# Supported Database Engines
+
+Shlink officially supports four major database engines, giving you flexibility in choosing the right database solution for your infrastructure. Whether you're running a small personal instance or a large-scale deployment, Shlink has you covered.
+
+## Supported Databases
+
+Shlink supports the following database engines:
+
+- **MySQL** (5.7 or higher recommended)
+- **MariaDB** (10.3 or higher recommended)
+- **PostgreSQL** (10 or higher recommended)
+- **Microsoft SQL Server** (2017 or higher recommended)
+- **SQLite** (for development and small deployments)
+
+All database engines are fully supported with feature parity, meaning you can choose the one that best fits your needs without sacrificing functionality.
+
+## MySQL
+
+MySQL is one of the most popular open-source relational database management systems and is fully supported by Shlink.
+
+### Configuration
+
+To use MySQL with Shlink, you need to configure the following environment variables:
+
+```bash
+DB_DRIVER=mysql
+DB_NAME=shlink
+DB_USER=your_username
+DB_PASSWORD=your_password
+DB_HOST=localhost
+DB_PORT=3306
+```
+
+Additionally, you'll need the `pdo_mysql` PHP extension installed.
+
+### SSL/TLS Encryption
+
+MySQL supports encrypted connections. To enable SSL encryption for your MySQL connection, set:
+
+```bash
+DB_USE_ENCRYPTION=true
+```
+
+When encryption is enabled, Shlink will:
+- Require SSL connections (PDO::MYSQL_ATTR_SSL_KEY)
+- Accept any certificate (PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT set to false)
+
+### Unix Socket Connections
+
+For improved performance when the database is on the same host, you can use Unix socket connections:
+
+```bash
+DB_UNIX_SOCKET=/path/to/mysql.sock
+```
+
+### Character Set
+
+Shlink uses `utf8mb4` character set for MySQL connections to ensure full Unicode support, including emojis and special characters.
+
+### Limitations
+
+- **Transactions in Migrations**: Database migrations are **not transactional** on MySQL. The migration template explicitly disables transactions for MySQL platforms to avoid issues with DDL statements that implicitly commit.
+
+## MariaDB
+
+MariaDB is a community-developed fork of MySQL and is fully compatible with Shlink. It's often preferred for its performance improvements and additional features.
+
+### Configuration
+
+MariaDB configuration is nearly identical to MySQL:
+
+```bash
+DB_DRIVER=maria
+DB_NAME=shlink
+DB_USER=your_username
+DB_PASSWORD=your_password
+DB_HOST=localhost
+DB_PORT=3306
+```
+
+You'll need the `pdo_mysql` PHP extension (MariaDB uses the same PDO driver as MySQL).
+
+### SSL/TLS Encryption
+
+Like MySQL, MariaDB supports encrypted connections:
+
+```bash
+DB_USE_ENCRYPTION=true
+```
+
+The same SSL configuration applies as with MySQL.
+
+### Unix Socket Connections
+
+MariaDB also supports Unix socket connections for local database servers:
+
+```bash
+DB_UNIX_SOCKET=/path/to/mariadb.sock
+```
+
+### Character Set
+
+Shlink uses `utf8mb4` character set for MariaDB connections, ensuring full Unicode support.
+
+### Limitations
+
+- **Transactions in Migrations**: Like MySQL, database migrations are **not transactional** on MariaDB. The migration system explicitly disables transactions for MariaDB to avoid issues with DDL operations.
+
+## PostgreSQL
+
+PostgreSQL is a powerful, open-source object-relational database system known for its standards compliance and advanced features.
+
+### Configuration
+
+To use PostgreSQL with Shlink:
+
+```bash
+DB_DRIVER=postgres
+DB_NAME=shlink
+DB_USER=your_username
+DB_PASSWORD=your_password
+DB_HOST=localhost
+DB_PORT=5432
+```
+
+You'll need the `pdo_pgsql` PHP extension installed.
+
+### SSL/TLS Encryption
+
+PostgreSQL supports encrypted connections using SSL:
+
+```bash
+DB_USE_ENCRYPTION=true
+```
+
+When encryption is enabled, Shlink configures:
+- `sslmode=require` - Requires encrypted connections
+- `sslrootcert=''` - Allows any certificate (useful for self-signed certificates)
+
+### Character Set
+
+Shlink uses `utf8` character set for PostgreSQL connections.
+
+### Limitations
+
+PostgreSQL has **no known limitations** when used with Shlink. All features, including transactional migrations, work as expected.
+
+## Microsoft SQL Server
+
+Microsoft SQL Server is fully supported, making Shlink a great choice for organizations with existing SQL Server infrastructure.
+
+### Configuration
+
+To use Microsoft SQL Server with Shlink:
+
+```bash
+DB_DRIVER=mssql
+DB_NAME=shlink
+DB_USER=your_username
+DB_PASSWORD=your_password
+DB_HOST=localhost
+DB_PORT=1433
+```
+
+You'll need:
+- The `pdo_sqlsrv` PHP extension
+- Microsoft ODBC Driver for SQL Server (version 18 or higher)
+
+### SSL/TLS Encryption
+
+SQL Server connections can be encrypted, though Shlink currently configures connections to trust the server certificate:
+
+```bash
+DB_USE_ENCRYPTION=true
+```
+
+The driver option `TrustServerCertificate` is set to `true` to allow connections without certificate validation.
+
+### Installation Notes
+
+When setting up SQL Server support, you need to install the Microsoft ODBC Driver. On Ubuntu/Debian systems:
+
+```bash
+curl https://packages.microsoft.com/keys/microsoft.asc | apt-key add -
+curl https://packages.microsoft.com/config/ubuntu/24.04/prod.list > /etc/apt/sources.list.d/mssql-release.list
+apt-get update
+ACCEPT_EULA=Y apt-get install msodbcsql18
+```
+
+### Limitations
+
+Microsoft SQL Server has **no known limitations** when used with Shlink. All features work as expected, including transactional migrations.
+
+## SQLite
+
+SQLite is a lightweight, file-based database that's perfect for development, testing, or small deployments.
+
+### Configuration
+
+SQLite is the default database engine and requires minimal configuration:
+
+```bash
+DB_DRIVER=sqlite
+```
+
+Or simply don't set `DB_DRIVER` at all, as SQLite is the default.
+
+The database file is stored at `data/database.sqlite` relative to your Shlink installation directory.
+
+### When to Use SQLite
+
+SQLite is ideal for:
+- **Development environments**: Quick setup with no external dependencies
+- **Small personal instances**: Perfect for low-traffic personal URL shorteners
+- **Testing**: Fast and disposable database for running tests
+- **Portable deployments**: Single-file database that's easy to backup and move
+
+### When NOT to Use SQLite
+
+Avoid SQLite for:
+- **High-traffic production sites**: SQLite has limited concurrent write capabilities
+- **Multi-server deployments**: SQLite is file-based and cannot be shared across multiple servers
+- **Large datasets**: Performance degrades with very large numbers of short URLs and visits
+
+### Limitations
+
+- **Concurrency**: Limited support for concurrent writes. High-traffic sites should use a client-server database.
+- **No network access**: Being file-based, SQLite cannot be accessed remotely or shared across multiple application servers.
+
+## Migration Between Database Engines
+
+Shlink does not provide built-in tools for migrating data between different database engines. If you need to switch from one database to another:
+
+### Manual Migration Process
+
+1. **Export your data**: Use your current database's export tools to create a backup
+2. **Set up the new database**: Create an empty database in your target engine
+3. **Update Shlink configuration**: Change the `DB_DRIVER` and related environment variables
+4. **Run migrations**: Execute `vendor/bin/doctrine-migrations migrate` to create the schema
+5. **Import data**: Manually import your data, being mindful of any syntax differences
+
+### Using Database Tools
+
+Consider using database migration tools like:
+- **pgLoader**: Excellent for migrating from MySQL/MariaDB to PostgreSQL
+- **Database-specific tools**: Most database engines provide their own import/export utilities
+- **ETL tools**: For complex migrations, consider Extract-Transform-Load tools
+
+### Important Considerations
+
+- **Test thoroughly**: Always test your migration in a non-production environment first
+- **Backup everything**: Create complete backups before starting any migration
+- **Schema differences**: Be aware that different databases may handle certain data types differently
+- **Downtime**: Plan for downtime during the migration process
+
+## Docker Compose Examples
+
+Shlink's docker-compose.yml file includes examples for all supported databases:
+
+### MySQL Example
+
+```yaml
+shlink_db_mysql:
+    container_name: shlink_db_mysql
+    image: mysql:8.0
+    ports:
+        - "3307:3306"
+    environment:
+        MYSQL_ROOT_PASSWORD: root
+        MYSQL_DATABASE: shlink
+```
+
+### PostgreSQL Example
+
+```yaml
+shlink_db_postgres:
+    container_name: shlink_db_postgres
+    image: postgres:16.3-alpine
+    ports:
+        - "5434:5432"
+    environment:
+        POSTGRES_PASSWORD: root
+        POSTGRES_DB: shlink
+```
+
+### MariaDB Example
+
+```yaml
+shlink_db_maria:
+    container_name: shlink_db_maria
+    image: mariadb:10.7
+    ports:
+        - "3308:3306"
+    environment:
+        MYSQL_ROOT_PASSWORD: root
+        MYSQL_DATABASE: shlink
+```
+
+### Microsoft SQL Server Example
+
+```yaml
+shlink_db_ms:
+    container_name: shlink_db_ms
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    ports:
+        - "1433:1433"
+    environment:
+        ACCEPT_EULA: Y
+        SA_PASSWORD: "Passw0rd!"
+```
+
+## Testing Across Databases
+
+Shlink's test suite runs against all supported databases to ensure consistent behavior:
+
+```bash
+# Test with SQLite (default)
+composer test:db:sqlite
+
+# Test with MySQL
+composer test:db:mysql
+
+# Test with MariaDB
+composer test:db:maria
+
+# Test with PostgreSQL
+composer test:db:postgres
+
+# Test with Microsoft SQL Server
+composer test:db:ms
+```
+
+This comprehensive testing ensures that all database engines provide the same functionality and behavior.
+
+## Choosing the Right Database
+
+### For Small Personal Instances
+- **SQLite**: Perfect for getting started quickly with minimal setup
+
+### For Medium to Large Deployments
+- **PostgreSQL**: Excellent choice for its reliability, features, and performance
+- **MySQL/MariaDB**: Great options if you're already familiar with these databases
+
+### For Enterprise Environments
+- **Microsoft SQL Server**: Ideal if you're in a Microsoft-centric environment
+- **PostgreSQL**: Excellent for its advanced features and standards compliance
+
+### For High-Availability Setups
+- **PostgreSQL**: Strong replication and clustering support
+- **MySQL/MariaDB**: Mature replication and clustering solutions
+- **Microsoft SQL Server**: Enterprise-grade high-availability features
+
+## Conclusion
+
+Shlink's support for multiple database engines gives you the flexibility to choose the right database for your needs. Whether you're running a simple personal instance with SQLite or a large-scale enterprise deployment with PostgreSQL or SQL Server, Shlink has you covered with full feature parity across all supported databases.

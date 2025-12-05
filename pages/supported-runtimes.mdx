@@ -1,0 +1,302 @@
+---
+title: Supported runtimes
+---
+
+{/* Build timestamp: 1764955046400 - Forces cache invalidation */}
+
+**Last Updated:** 12/3/2025
+
+---
+
+# Supported Runtimes
+
+Shlink can be served using different runtime environments, each with its own advantages and use cases. Understanding these options will help you choose the best deployment strategy for your needs.
+
+## Overview
+
+Shlink supports three primary runtime options:
+
+1. **RoadRunner** - A high-performance PHP application server (recommended for production)
+2. **FrankenPHP** - A modern PHP application server built on top of the Caddy web server
+3. **Classic Web Server** - Traditional PHP-FPM with nginx, Apache, or similar web servers
+
+Each runtime has different performance characteristics, resource requirements, and operational considerations. The choice depends on your infrastructure, expected traffic, and operational preferences.
+
+## RoadRunner
+
+RoadRunner is the recommended runtime for Shlink in production environments. It's a high-performance PHP application server written in Go that keeps your application in memory between requests, resulting in significantly faster response times.
+
+### Key Features
+
+- **High Performance**: Keeps PHP workers in memory, eliminating bootstrap overhead on every request
+- **Built-in Worker Management**: Automatically manages PHP worker processes
+- **HTTP/2 and HTTP/3 Support**: Native support for modern HTTP protocols
+- **Job Queue Processing**: Integrated support for background job processing
+- **Low Memory Footprint**: Efficient resource utilization compared to traditional PHP-FPM setups
+
+### When to Use RoadRunner
+
+RoadRunner is ideal when:
+
+- You need maximum performance and low response times
+- You're running Shlink with moderate to high traffic
+- You want simplified deployment with the official Docker image
+- You need built-in support for background jobs and async processing
+
+### Version Support
+
+Shlink uses **RoadRunner 2024** (the latest major version). The official Docker image comes with RoadRunner pre-configured and ready to use.
+
+### Configuration
+
+When using the Docker image, RoadRunner is the default runtime. The server configuration is managed automatically, but you can customize certain aspects using environment variables:
+
+- `PORT`: The port RoadRunner listens on (default: 8080)
+- `ADDRESS`: The IP address to bind to (default: 0.0.0.0)
+- `WEB_WORKER_NUM`: Number of HTTP workers to spawn
+- `TASK_WORKER_NUM`: Number of background task workers
+
+For self-hosted installations, RoadRunner can be downloaded using:
+
+```bash
+php ./vendor/bin/rr get
+```
+
+The binary will be placed in the `bin/` directory and can be started with:
+
+```bash
+./bin/rr serve -c config/roadrunner/.rr.yml
+```
+
+## FrankenPHP
+
+FrankenPHP is a modern PHP application server built on top of the Caddy web server. It provides similar benefits to RoadRunner with a different architecture and additional features inherited from Caddy.
+
+### Key Features
+
+- **Caddy Integration**: Leverages Caddy's powerful features including automatic HTTPS
+- **Worker Mode**: Keeps PHP workers in memory like RoadRunner
+- **Early Hints Support**: Supports HTTP 103 Early Hints for improved performance
+- **Modern Architecture**: Built with Go and modern web standards in mind
+
+### When to Use FrankenPHP
+
+FrankenPHP is a good choice when:
+
+- You prefer Caddy's ecosystem and configuration approach
+- You want automatic HTTPS certificate management out of the box
+- You're looking for an alternative to RoadRunner with similar performance characteristics
+- You want to experiment with newer PHP server technologies
+
+### Version Support
+
+Shlink added FrankenPHP support in **version 4.6.0**. The worker script is available at `bin/frankenphp-worker.php`.
+
+### Configuration
+
+To run Shlink with FrankenPHP:
+
+```bash
+frankenphp php-server --worker bin/frankenphp-worker.php
+```
+
+FrankenPHP can be configured through its standard configuration mechanisms. Refer to the [FrankenPHP documentation](https://frankenphp.dev/) for detailed configuration options.
+
+## Classic Web Server
+
+The traditional approach uses PHP-FPM (FastCGI Process Manager) paired with a web server like nginx or Apache. This is the most familiar setup for many PHP developers and system administrators.
+
+### Key Features
+
+- **Proven Technology**: Battle-tested approach used by millions of PHP applications
+- **Wide Compatibility**: Works with any web server that supports FastCGI
+- **Familiar Tooling**: Standard PHP deployment practices apply
+- **Flexible Configuration**: Full control over PHP-FPM and web server settings
+
+### When to Use a Classic Web Server
+
+A classic web server setup is appropriate when:
+
+- You're already running PHP-FPM infrastructure
+- You prefer traditional deployment methods
+- You have existing expertise with nginx or Apache
+- You're running Shlink on shared hosting or restricted environments
+- You have minimal traffic and don't need the performance benefits of worker-based servers
+
+### Version Support
+
+Shlink requires:
+
+- **PHP**: 8.4 or 8.5
+- **Web Server**: Any web server supporting PHP-FPM (nginx, Apache, Lighttpd, etc.)
+
+### PHP Extensions Required
+
+Regardless of the web server used, the following PHP extensions are required:
+
+- `json`
+- `curl`
+- `pdo`
+- `intl`
+- `gd`
+- `gmp` or `bcmath`
+
+Additional recommended extensions:
+
+- `apcu` - For caching (highly recommended with classic web servers)
+- `sockets` - Required for RabbitMQ integration
+- Database-specific PDO extensions: `pdo_mysql`, `pdo_pgsql`, `pdo_sqlsrv`, or `pdo_sqlite`
+
+### Setup Example with Nginx
+
+1. **Configure PHP-FPM**: Ensure PHP-FPM is running with the required extensions
+
+2. **Configure Nginx**: Create a server block pointing to Shlink's `public/` directory
+
+```nginx
+server {
+    listen 80;
+    server_name your-domain.com;
+    root /path/to/shlink/public;
+    index index.php;
+
+    location / {
+        try_files $uri $uri/ /index.php$is_args$args;
+    }
+
+    location ~ \.php$ {
+        fastcgi_pass unix:/var/run/php/php8.4-fpm.sock;
+        fastcgi_index index.php;
+        include fastcgi_params;
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+    }
+}
+```
+
+3. **Set Permissions**: Ensure the `data/` directory is writable by the web server
+
+```bash
+chmod -R 775 data/
+chown -R www-data:www-data data/
+```
+
+### Setup Example with Apache
+
+1. **Enable Required Modules**:
+
+```bash
+a2enmod rewrite
+a2enmod proxy_fcgi
+a2enmod setenvif
+```
+
+2. **Configure Virtual Host**:
+
+```apache
+<VirtualHost *:80>
+    ServerName your-domain.com
+    DocumentRoot /path/to/shlink/public
+
+    <Directory /path/to/shlink/public>
+        AllowOverride All
+        Require all granted
+    </Directory>
+
+    <FilesMatch \.php$>
+        SetHandler "proxy:unix:/var/run/php/php8.4-fpm.sock|fcgi://localhost"
+    </FilesMatch>
+</VirtualHost>
+```
+
+3. **Use Provided .htaccess**: Shlink includes a `.htaccess` file in the `public/` directory that handles URL rewriting
+
+## Performance Comparison
+
+The choice of runtime significantly impacts performance:
+
+| Runtime | Requests/sec* | Memory Usage | Setup Complexity |
+|---------|---------------|--------------|------------------|
+| RoadRunner | ~3000-5000 | Low | Low (with Docker) |
+| FrankenPHP | ~2500-4500 | Low | Medium |
+| Classic (PHP-FPM) | ~500-1000 | Medium | Medium |
+
+*Approximate values, actual performance depends on hardware, configuration, and workload.
+
+### Key Performance Factors
+
+- **Worker-based servers** (RoadRunner, FrankenPHP) keep the application in memory, eliminating PHP bootstrap time
+- **Classic setups** restart PHP on every request, incurring bootstrap overhead
+- **Caching** is more critical with classic setups; consider using APCu or Redis
+- **Database connections** are more efficiently managed with worker-based servers
+
+## Docker Deployment
+
+The official Docker image uses RoadRunner by default, but you can choose your preferred runtime using build arguments or image tags.
+
+### Available Image Tags
+
+- `shlinkio/shlink:latest` - Latest stable version with default runtime (RoadRunner)
+- `shlinkio/shlink:4.6.0-roadrunner` - Specific version with RoadRunner
+- `shlinkio/shlink:4.6.0-openswoole` - Specific version with Openswoole (legacy)
+
+### Switching Runtimes in Docker
+
+The Docker image is built with the `SHLINK_RUNTIME` argument:
+
+```dockerfile
+ARG SHLINK_RUNTIME=rr
+ENV SHLINK_RUNTIME=${SHLINK_RUNTIME}
+```
+
+The entrypoint script automatically detects the runtime and starts the appropriate server.
+
+## Choosing the Right Runtime
+
+### Choose RoadRunner if:
+- You want the best performance
+- You're deploying with Docker
+- You need background job processing
+- You want a production-ready setup with minimal configuration
+
+### Choose FrankenPHP if:
+- You want modern PHP server features
+- You prefer Caddy's ecosystem
+- You want to try cutting-edge technology
+- You need automatic HTTPS management
+
+### Choose Classic Web Server if:
+- You're already running PHP-FPM infrastructure
+- You have low traffic requirements
+- You prefer traditional deployment methods
+- You're on shared hosting or have infrastructure constraints
+
+## Migration Between Runtimes
+
+Switching between runtimes is straightforward since Shlink's core functionality is runtime-agnostic:
+
+1. **Backup your data**: Always backup your database and configuration
+2. **Install the new runtime**: Follow the specific setup instructions
+3. **Update your configuration**: Adjust environment variables or config files as needed
+4. **Test thoroughly**: Verify all features work correctly with the new runtime
+5. **Monitor performance**: Check that the new runtime meets your performance requirements
+
+No database migrations or data transformations are needed when changing runtimes.
+
+## Additional Resources
+
+- [Docker Installation Guide](https://shlink.io/documentation/install-docker-image/)
+- [Self-hosted Installation Guide](https://github.com/shlinkio/shlink#self-hosted)
+- [RoadRunner Documentation](https://roadrunner.dev/)
+- [FrankenPHP Documentation](https://frankenphp.dev/)
+
+## Next Steps
+
+After choosing your runtime, you'll want to:
+
+- Configure your database connection
+- Set up your first short URL domain
+- Generate API keys for accessing the REST API
+- Configure optional features like GeoLite2 for visit geolocation
+- Set up monitoring and logging
+
+For detailed version requirements and compatibility information, refer to the [Supported Versions](link-to-versions-article) article.
